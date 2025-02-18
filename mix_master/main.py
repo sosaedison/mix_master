@@ -67,12 +67,10 @@ def detect_bpm(y: np.ndarray, sample_rate: int) -> float:
     samples = min(len(y), int(sample_rate * duration))
     y = y[:samples]
 
-    # Method 1: Standard beat tracking with parameters optimized for electronic music
+    # Method 1: Standard beat tracking without start_bpm
     tempo1, _ = librosa.beat.beat_track(
         y=y,
         sr=sample_rate,
-        start_bpm=126,  # Start with common electronic music BPM
-        tightness=400,  # Increase tightness for electronic beats
         hop_length=512,  # Increased hop length to reduce memory usage
     )
 
@@ -98,20 +96,21 @@ def detect_bpm(y: np.ndarray, sample_rate: int) -> float:
         )[0]
     )
 
-    # Method 3: Use dynamic programming beat tracker
+    # Method 3: Use dynamic programming beat tracker without start_bpm
     tempo3, _ = librosa.beat.beat_track(
-        y=y, sr=sample_rate, start_bpm=126, units="time", hop_length=512, tightness=500
+        y=y, sr=sample_rate, units="time", hop_length=512
     )
 
     # Convert all tempos to float
     tempo1 = float(tempo1)
     tempo3 = float(tempo3)
 
-    # Apply proximity weighting - give more weight to values closer to 126
+    # Apply proximity weighting - give more weight to values closer to the average detected BPM
+    avg_tempo = np.mean([tempo1, tempo2, tempo3])
     weights = [
-        1 / (abs(126 - tempo1) + 1),
-        1 / (abs(126 - tempo2) + 1),
-        1 / (abs(126 - tempo3) + 1),
+        1 / (abs(avg_tempo - tempo1) + 1),
+        1 / (abs(avg_tempo - tempo2) + 1),
+        1 / (abs(avg_tempo - tempo3) + 1),
     ]
 
     # Normalize weights
@@ -218,8 +217,8 @@ def save_audio(audio_segment: AudioSegment, output_path: str) -> None:
 
 
 # Paths to input songs
-song1_path = f"{MUSIC_DIR}/Sete - Nitefreak Remix BLOND_ISH, Francis Mercier, Amadou & Mariam, Nitefreak Sete (Nitefreak Remix) 2022.wav"
-song2_path = f"{MUSIC_DIR}/Jamming - FISHER Rework Bob Marley & The Wailers, FISHER Jamming (FISHER Rework) 2024.wav"
+song1_path = f"{MUSIC_DIR}/Shut It Down 2024.wav"
+song2_path = f"{MUSIC_DIR}/Wish You Juls, Bas, Mannywellz 2022 Sounds of My World (Deluxe).wav"
 
 # Load songs
 song1, sample_rate1 = load_audio(song1_path)
@@ -229,29 +228,31 @@ song2, sample_rate2 = load_audio(song2_path)
 logger.info(f"Song 1 sample rate: {sample_rate1}")
 logger.info(f"Song 2 sample rate: {sample_rate2}")
 
-# Synchronize BPM
+# Known BPM for both songs
+known_bpm = 125
+logger.info(f"Both songs are known to be {known_bpm} BPM")
 
-song1_tempo = detect_bpm(song1, sample_rate1)
-song2_tempo = detect_bpm(song2, sample_rate2)
+# Comment out BPM detection and time-stretching
+# song1_tempo = detect_bpm(song1, sample_rate1)
+# song2_tempo = detect_bpm(song2, sample_rate2)
 
-
-target_bpm = min(song1_tempo, song2_tempo)
-logger.info(f"Target BPM: {target_bpm}")
-logger.info(f"Song 1 BPM: {song1_tempo}")
-logger.info(f"Song 2 BPM: {song2_tempo}")
+# target_bpm = min(song1_tempo, song2_tempo)
+# logger.info(f"Target BPM: {target_bpm}")
+# logger.info(f"Song 1 BPM: {song1_tempo}")
+# logger.info(f"Song 2 BPM: {song2_tempo}")
 
 # Initialize synced songs
 song1_synced = song1
 song2_synced = song2
 
-# Stretch each song if its tempo doesn't match target
-if song1_tempo != target_bpm:
-    logger.info(f"Stretching song 1 from {song1_tempo} to {target_bpm} BPM")
-song1_synced = time_stretch(song1, song1_tempo, target_bpm)
+# Comment out time-stretching
+# if song1_tempo != target_bpm:
+#     logger.info(f"Stretching song 1 from {song1_tempo} to {target_bpm} BPM")
+#     song1_synced = time_stretch(song1, song1_tempo, target_bpm)
 
-if song2_tempo != target_bpm:
-    logger.info(f"Stretching song 2 from {song2_tempo} to {target_bpm} BPM")
-song2_synced = time_stretch(song2, song2_tempo, target_bpm)
+# if song2_tempo != target_bpm:
+#     logger.info(f"Stretching song 2 from {song2_tempo} to {target_bpm} BPM")
+#     song2_synced = time_stretch(song2, song2_tempo, target_bpm)
 
 # After BPM synchronization
 song1_aligned, song2_aligned = align_beats(
